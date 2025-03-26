@@ -1,0 +1,1 @@
+import{j as s,e as l}from"./index-Bluomjo3.js";const t=({pageName:e})=>s.jsx("nav",{children:s.jsxs("ol",{className:"flex text-header flex-col",children:[s.jsx("li",{children:s.jsxs(l,{className:"opacity-70",to:"/home",children:["หน้า / ",e]})}),s.jsx("li",{className:"font-bold text-xl",children:e})]})});export{t as B};

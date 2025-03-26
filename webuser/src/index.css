@@ -1,0 +1,29 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai+Looped:wght@200;300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  @apply font-IBM;
+}
+
+.swal-popup {
+  @apply p-4 rounded-lg text-sm;  /* Padding, rounded corners, and font size */
+}
+
+.swal-title {
+  @apply text-lg font-semibold; /* Title styling */
+}
+
+.swal-html {
+  @apply text-sm;  /* Smaller font size for the content */
+}
+
+.swal-custom-btn {
+  @apply text-sm py-2 px-4 rounded-lg text-white;  /* Button styling */
+}
+
+.swal-icon {
+  margin-top: 4px; /* ลด padding-top ของไอคอน */
+}

@@ -1,0 +1,16 @@
+import{j as s}from"./index-Bluomjo3.js";import{c as h}from"./createLucideIcon-BSuAhcd7.js";import{C as k}from"./SearchDisplay-Hgc5dbHY.js";/**
+ * @license lucide-react v0.475.0 - ISC
+ *
+ * This source code is licensed under the ISC license.
+ * See the LICENSE file in the root directory of this source tree.
+ */const g=[["path",{d:"m9 18 6-6-6-6",key:"mthhwq"}]],$=h("ChevronRight",g);/**
+ * @license lucide-react v0.475.0 - ISC
+ *
+ * This source code is licensed under the ISC license.
+ * See the LICENSE file in the root directory of this source tree.
+ */const G=[["path",{d:"m11 17-5-5 5-5",key:"13zhaf"}],["path",{d:"m18 17-5-5 5-5",key:"h8a8et"}]],M=h("ChevronsLeft",G);/**
+ * @license lucide-react v0.475.0 - ISC
+ *
+ * This source code is licensed under the ISC license.
+ * See the LICENSE file in the root directory of this source tree.
+ */const _=[["path",{d:"m6 17 5-5-5-5",key:"xnjwq"}],["path",{d:"m13 17 5-5-5-5",key:"17xmmf"}]],R=h("ChevronsRight",_),z=({currentPage:e,totalPages:u,onPageChange:N,totalItems:i,itemsPerPage:c=10,showItemCount:y=!0})=>{const f=Number(e),p=Number(u),b=Number(i||0),v=Number(c),j=Math.ceil(b/v),a=Math.max(j,p);if(isNaN(f)||isNaN(a)||a<=1)return null;const C=()=>{const t=Number(e),r=Number(a);if(isNaN(t)||isNaN(r)||r<=1)return[];const x=2,n=[],d=[];let l;n.push(1),r>1&&n.push(r);for(let o=Math.max(2,t-x);o<=Math.min(r-1,t+x);o++)n.includes(o)||n.push(o);n.sort((o,w)=>o-w);for(let o=0;o<n.length;o++)l&&n[o]-l>1&&d.push("..."),d.push(n[o]),l=n[o];return d},m=t=>{typeof t=="number"&&t!==e&&t>=1&&t<=a&&N(t)};return s.jsxs("div",{className:"flex flex-col sm:flex-row items-center justify-between gap-4 px-4 py-3 bg-white text-sm rounded",children:[y&&i!==void 0&&s.jsxs("div",{className:"text-gray-700",children:["แสดง"," ",s.jsx("span",{className:"font-medium",children:Math.min((e-1)*c+1,i)})," ","ถึง"," ",s.jsx("span",{className:"font-medium",children:Math.min(e*c,i)})," ","จากทั้งหมด ",s.jsx("span",{className:"font-medium",children:i})," รายการ"]}),s.jsxs("nav",{className:"flex items-center space-x-1",children:[s.jsx("button",{onClick:()=>m(1),disabled:e===1,className:`p-2 rounded ${e===1?"text-gray-400 cursor-not-allowed":"text-mediumGray hover:text-primary hover:bg-secondary"}`,children:s.jsx(M,{className:"h-5 w-5"})}),s.jsx("button",{onClick:()=>m(e-1),disabled:e===1,className:`p-2 rounded ${e===1?"text-gray-400 cursor-not-allowed":"text-mediumGray hover:text-primary hover:bg-secondary"}`,children:s.jsx(k,{className:"h-5 w-5"})}),s.jsx("div",{className:"flex items-center space-x-1",children:C().map((t,r)=>s.jsx("button",{onClick:()=>m(t),className:`px-3 py-2 rounded ${t===e?"bg-primary text-secondary hover:bg-primaryContrast":t==="..."?"text-mediumGray cursor-default":"text-mediumGray hover:text-primary hover:bg-secondary"}`,children:t},r))}),s.jsx("button",{onClick:()=>m(e+1),disabled:e===a,className:`p-2 rounded ${e===a?"text-gray-400 cursor-not-allowed":"text-mediumGray hover:text-primary hover:bg-secondary"}`,children:s.jsx($,{className:"h-5 w-5"})}),s.jsx("button",{onClick:()=>m(a),disabled:e===a,className:`p-2 rounded ${e===a?"text-gray-400 cursor-not-allowed":"text-mediumGray hover:text-primary hover:bg-secondary"}`,children:s.jsx(R,{className:"h-5 w-5"})})]})]})};export{$ as C,z as P};
