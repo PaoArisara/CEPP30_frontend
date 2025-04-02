@@ -6,7 +6,7 @@ export interface Pagination {
     total: number;
     page: number;
     limit: number;
-    totalPages: number;
+    lastPage:number;
 }
 
 export interface WebSocketResponse<T> {

@@ -99,11 +99,11 @@ export const CarHistoryModal: React.FC<CarHistoryModalProps> = ({
                     )}
                 </div>
 
-                {car.meta.totalPages > 1 && onPageChange && (
+                {car.meta.lastPage > 1 && onPageChange && (
                     <div className="mt-4 border-t pt-4">
                         <Pagination
                             currentPage={car.meta.page}
-                            totalPages={car.meta.totalPages}
+                            totalPages={car.meta.lastPage}
                             onPageChange={onPageChange}
                             totalItems={car.meta.total}
                             itemsPerPage={car.meta.limit}

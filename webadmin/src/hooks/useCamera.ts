@@ -16,7 +16,7 @@ const initialFilters: ProcessedFilters = {
 };
 
 export const useCamera = () => {
-    const socket = useSocketService(CameraSocketService,true);
+    const socket = useSocketService(CameraSocketService, true);
     const [isConnected, setIsConnected] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -30,7 +30,7 @@ export const useCamera = () => {
 
     const [cameras, setCameras] = useState<CameraResponse>({
         data: [],
-        meta: { total: 0, totalPages: 0, page: 1, limit: 10 }
+        meta: { total: 0, lastPage: 0, page: 1, limit: 10 }
     });
 
     const { user } = useAuth();
@@ -69,6 +69,7 @@ export const useCamera = () => {
         const handleConnect = () => {
             console.log('Socket connected successfully');
             setIsConnected(true);
+            setError(null)
         };
 
         const handleDisconnect = () => {
@@ -140,7 +141,7 @@ export const useCamera = () => {
     // Filter Handlers
     const handleSearch = useCallback((searchParams: SearchFields) => {
         // Check if any search parameter has a value
-        const hasSearchValues = Object.values(searchParams).some(value => 
+        const hasSearchValues = Object.values(searchParams).some(value =>
             value !== undefined && value !== null && value !== ''
         );
         setIsSearch(hasSearchValues);
@@ -164,11 +165,24 @@ export const useCamera = () => {
     }, []);
 
 
+    // Modified handleClear
     const handleClear = useCallback(() => {
+        const hasNonStatusSearchValues = Object.entries(filters).some(([key, value]) => {
+            if (key === 'page' || key === 'limit' || key === 'status') {
+                return false;
+            }
+            return value !== null && value !== undefined && value !== '';
+        });
+
+        if (!hasNonStatusSearchValues && !isSearch) {
+            return;
+        }
         setIsSearch(false);
-        setFilters(initialFilters);
-        setActiveTab('all');
-    }, []);
+        setFilters(prev => ({
+            ...initialFilters,
+            status: prev.status,
+        }));
+    }, [filters, isSearch]);
 
 
     const handleTabChange = useCallback((tab: string) => {

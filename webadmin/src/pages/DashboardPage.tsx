@@ -7,9 +7,16 @@ import { CameraIcon, TruckIcon } from 'lucide-react';
 import ParkingTrendChart from '../components/common/ParkingTrendChart';
 import ParkingPeakChart from '../components/common/ParkingPeakChart';
 import useDashboard from '../hooks/useDashboard';
+import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
+import LoadingSpinner from '../components/common/LoadingSpinner';
 
 function DashboardPage() {
+  const navigate = useNavigate();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
+
   const {
+    loading,
     slotStatsAData,
     slotStatsBData,
     slotData,
@@ -34,6 +41,18 @@ function DashboardPage() {
 
     return () => clearInterval(interval);
   }, []);
+
+  // Initial auth check
+  useEffect(() => {
+    if (!isAuthenticated && !authLoading) {
+      navigate('/');
+    }
+  }, [isAuthenticated, authLoading, navigate]);
+
+
+  if (authLoading || loading) {
+    return <LoadingSpinner message="กำลังโหลดข้อมูล..." />;
+  }
 
   return (
     <div className="flex flex-col gap-4 p-4">

@@ -12,14 +12,15 @@ import { Pagination } from '../components/common/Pagination';
 import { HistoryModal } from '../components/modals/HistoryModal';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import LoadingSpinner from '../components/common/LoadingSpinner';
 
 
 const CameraPage: React.FC = () => {
-
   const navigate = useNavigate();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
 
   const {
+    loading,
     error,
     cameras,
     filters,
@@ -115,6 +116,7 @@ const CameraPage: React.FC = () => {
         onClick={() => handleModalControl('history', camera)}
         className="text-header hover:text-gray-900"
         title="ดูประวัติ"
+        disabled={loading}
       >
         <History className="h-5 w-5" />
       </button>
@@ -123,6 +125,7 @@ const CameraPage: React.FC = () => {
           onClick={() => setMaintenanceCamera(camera)}
           className="text-error hover:text-red-900"
           title="แจ้งซ่อม"
+          disabled={loading}
         >
           <Wrench className="h-5 w-5" />
         </button>
@@ -140,104 +143,110 @@ const CameraPage: React.FC = () => {
     if (isSearch) {
       return (
         <div className="p-4">
-          <div className=" text-mediumGray mb-2 flex items-start gap-2 justify-center w-full">
+          <div className="text-mediumGray mb-2 flex items-start gap-2 justify-center w-full">
             <AlertCircle className='w-5 h-5' />  ไม่พบข้อมูลที่ค้นหา
           </div>
-            <div className="text-sm text-gray-400">
-              กรุณาลองค้นหาด้วยเงื่อนไขอื่น หรือ
-              <button
-                onClick={handleClear}
-                className="text-primary hover:underline ml-1"
-              >
-                ล้างการค้นหา
-              </button>
-            </div>
+          <div className="text-sm text-gray-400">
+            กรุณาลองค้นหาด้วยเงื่อนไขอื่น หรือ
+            <button
+              onClick={handleClear}
+              className="text-primary hover:underline ml-1"
+            >
+              ล้างการค้นหา
+            </button>
+          </div>
         </div>
       );
     }
     return 'ไม่พบข้อมูล';
   };
 
+  if (authLoading) {
+    return <LoadingSpinner message="กำลังตรวจสอบสิทธิ์..." />;
+  }
+
   return (
-    <div className="flex flex-col gap-4 p-4">
-      <Breadcrumb pageName="ระบบจัดการกล้องวงจรปิด" />
+    <div className="flex flex-col gap-4 p-4 min-h-screen">
+      {/* Content wrapper - flex-grow to push pagination to bottom */}
+      <div className="flex flex-col gap-4 flex-grow">
+        <Breadcrumb pageName="ระบบจัดการกล้องวงจรปิด" />
 
-      {/* Status Filters */}
-      <div className="bg-white p-2 rounded w-fit">
-        <div className="flex gap-4">
-          {[
-            { key: 'all', label: 'ทั้งหมด', activeClass: 'bg-primary text-secondary hover:bg-primaryContrast' },
-            { key: 'active', label: 'ปกติ', activeClass: 'bg-primary text-secondary hover:bg-primaryContrast' },
-            {
-              key: 'waiting',
-              label: 'รอดำเนินการ',
-              activeClass: 'bg-primary text-secondary hover:bg-primaryContrast',
-              // icon: <Loader className="h-4 w-4" />
-            },
-            {
-              key: 'broken',
-              label: 'กล้องชำรุด',
-              activeClass: 'bg-primary text-secondary hover:bg-primaryContrast',
-              // icon: <AlertTriangle className="h-4 w-4" />
-            }
-          ].map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => handleTabChange(tab.key)}
-              className={`px-4 py-2 rounded flex items-center gap-2 ${activeTab === tab.key ? tab.activeClass : ' text-header hover:bg-secondary'
+        {/* Status Filters */}
+        <div className="bg-white p-2 rounded w-fit">
+          <div className="flex gap-4">
+            {[
+              { key: 'all', label: 'ทั้งหมด', activeClass: 'bg-primary text-secondary hover:bg-primaryContrast' },
+              { key: 'active', label: 'ปกติ', activeClass: 'bg-primary text-secondary hover:bg-primaryContrast' },
+              {
+                key: 'waiting',
+                label: 'รอดำเนินการ',
+                activeClass: 'bg-primary text-secondary hover:bg-primaryContrast',
+              },
+              {
+                key: 'broken',
+                label: 'กล้องชำรุด',
+                activeClass: 'bg-primary text-secondary hover:bg-primaryContrast',
+              }
+            ].map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => handleTabChange(tab.key)}
+                className={`px-4 py-2 rounded flex items-center gap-2 ${
+                  activeTab === tab.key ? tab.activeClass : 'text-header hover:bg-secondary'
                 }`}
-            >
-              {/* {tab.icon} */}
-              {tab.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-
-      <div className='bg-white rounded'>
-        {/* Search */}
-        <SearchDisplay
-          searchConfig={searchConfig}
-          onSearch={handleSearch}
-          onClear={handleClear}
-          filters={searchFilters}
-        />
-
-        {/* Error Display */}
-        {error && (
-          <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
-
-        <div className='px-4 pb-4'>
-          <div className="flex justify-between items-center pb-4">
-            <div className="text-header">
-              {isSearch ? `ผลการค้นหา (${cameras.meta.total})` : `จำนวนทั้งหมด (${cameras.meta.total})`}
-            </div>
+                disabled={loading}
+              >
+                {tab.label}
+              </button>
+            ))}
           </div>
-          {/* Camera Table */}
-          <TableDisplay
-            headers={tableHeaders}
-            data={cameras.data}
-            actions={renderActions}
-            rowClassName={rowClassName}
-            emptyMessage={renderEmptyMessage()}
-            maxHeight="400px"
+        </div>
+
+        <div className='bg-white rounded'>
+          {/* Search */}
+          <SearchDisplay
+            searchConfig={searchConfig}
+            onSearch={handleSearch}
+            onClear={handleClear}
+            filters={searchFilters}
           />
+
+          {/* Error Display */}
+          {error && (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+
+          <div className='px-4 pb-4'>
+            <div className="flex justify-between items-center pb-4">
+              <div className="text-header">
+                {isSearch ? `ผลการค้นหา (${cameras.meta.total})` : `จำนวนทั้งหมด (${cameras.meta.total})`}
+              </div>
+            </div>
+            
+            <TableDisplay
+              headers={tableHeaders}
+              data={cameras.data}
+              actions={renderActions}
+              rowClassName={rowClassName}
+              emptyMessage={renderEmptyMessage()}
+              maxHeight="400px"
+              loading={loading} 
+            />
+          </div>
         </div>
       </div>
 
-
-      {/* Pagination */}
-      <Pagination
-        currentPage={Number(filters.page) || 1}
-        totalPages={Number(cameras.meta.totalPages) || 1}
-        onPageChange={handlePageChange}
-        totalItems={Number(cameras.meta.total) || 0}
-        itemsPerPage={Number(filters.limit) || 10}
-      />
+      <div className="mt-auto pt-4 sticky bottom-0 bg-gray-50">
+        <Pagination
+          currentPage={Number(filters.page) || 1}
+          totalPages={Number(cameras.meta.lastPage) || 1}
+          onPageChange={handlePageChange}
+          totalItems={Number(cameras.meta.total) || 0}
+          itemsPerPage={Number(filters.limit) || 10}
+        />
+      </div>
 
       {/* Maintenance Modal */}
       {maintenanceCamera && (

@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertCircle, HistoryIcon, SearchIcon } from 'lucide-react';
+import { AlertCircle, HistoryIcon as History, SearchIcon, RefreshCw } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { headersConfig, useParkingHistory } from '../hooks/useParkingHistory';
+import { useParkingHistory } from '../hooks/useParkingHistory';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import Breadcrumb from '../components/layout/Breadcrumb';
 import SearchDisplay from '../components/common/SearchDisplay';
@@ -73,7 +73,6 @@ const ParkingLogPage: React.FC = () => {
     handlePageChange,
     handleCarSelect,
     closeModals,
-    fetchParkingData
   } = useParkingHistory();
 
   useEffect(() => {
@@ -112,16 +111,13 @@ const ParkingLogPage: React.FC = () => {
   };
 
   const handleLocalSearch = (searchParams: Record<string, any>) => {
-    // กรองออก `page` และ `limit` จาก searchParams
     const { page, limit, ...paramsToCheck } = searchParams;
 
-    // ตรวจสอบค่าทุกค่ายกเว้น `page` และ `limit`
     const hasValues = Object.values(paramsToCheck).some(value =>
       value !== undefined && value !== null && value !== ''
     );
     setIsSearch(hasValues);
 
-    // ตรวจสอบ timestamp_in และ timestamp_out ก่อนว่าเป็นค่า valid หรือไม่
     const formattedParams = {
       ...paramsToCheck,
       timestamp_in: paramsToCheck.timestamp_in && paramsToCheck.timestamp_in !== ''
@@ -132,167 +128,200 @@ const ParkingLogPage: React.FC = () => {
         : undefined
     };
 
-    // ส่งค่าที่ format แล้วไปที่ handleSearch
     handleSearch(formattedParams);
   };
 
   const handleLocalClear = () => {
     setIsSearch(false);
     handleClear();
-    fetchParkingData('AB');
   };
 
-  const renderTableData = () => {
-    return logs.data.map((record: ParkingLogItem) => ({
-      id: record.vehicle_id,
-      license: (
+  const tableHeaders = [
+    {
+      key: 'license',
+      label: 'ทะเบียนรถ',
+      render: (record: ParkingLogItem) => (
         <div>
-          <div className="text-sm font-medium">{record.vehicle.license_id || 'ไม่ระบุ'}</div>
-          <div className="text-xs text-gray-500">{record.vehicle.province || "ไม่ระบุ"}</div>
+          <div className="text-sm font-medium">{record.vehicle?.license_id || 'ไม่ระบุ'}</div>
+          <div className="text-xs text-gray-500">{record.vehicle?.province || "ไม่ระบุ"}</div>
         </div>
-      ),
-      location: (
+      )
+    },
+    {
+      key: 'location',
+      label: 'ตำแหน่งจอดรถ',
+      render: (record: ParkingLogItem) => (
         <div>
-          <div className="text-sm">ชั้น {record.parkingSlot?.floor}</div>
+          <div className="text-sm">ชั้น {record.parkingSlot?.floor || 'ไม่ระบุ'}</div>
           <div className="text-xs text-gray-500">
-            ลานจอด {record.parkingSlot?.zone} แถว {record.parkingSlot?.row}-
-            {record.parkingSlot?.spot}
+            ลานจอด {record.parkingSlot?.zone || 'ไม่ระบุ'} แถว {record.parkingSlot?.row || 'ไม่ระบุ'}-
+            {record.parkingSlot?.spot || 'ไม่ระบุ'}
           </div>
         </div>
-      ),
-      timeIn: (
+      )
+    },
+    {
+      key: 'timeIn',
+      label: 'วันที่และเวลาเข้า',
+      render: (record: ParkingLogItem) => (
         <span className="text-sm">
-          {new Date(record.timestamp_in).toLocaleString('en-GB')}
+          {record.timestamp_in ? new Date(record.timestamp_in).toLocaleString('en-GB') : 'ไม่ระบุ'}
         </span>
-      ),
-      timeOut: record.timestamp_out ? (
-        <span className="text-sm">
-          {new Date(record.timestamp_out).toLocaleString('en-GB')}
-        </span>
-      ) : (
-        <span className="text-sm text-gray-500">-</span>
-      ),
-      rawData: record
-    }));
-  };
+      )
+    },
+    {
+      key: 'timeOut',
+      label: 'วันที่และเวลาออก',
+      render: (record: ParkingLogItem) => (
+        record.timestamp_out ? (
+          <span className="text-sm">
+            {new Date(record.timestamp_out).toLocaleString('en-GB')}
+          </span>
+        ) : (
+          <span className="text-sm text-gray-500">-</span>
+        )
+      )
+    }
+  ];
+
+  // Actions column
+  const renderActions = (record: ParkingLogItem) => (
+    <div className="flex justify-center space-x-2">
+      <button
+        onClick={() => handleCarSelect(record, 'history')}
+        className="text-gray-600 hover:text-gray-900 transition-colors"
+        title="ดูประวัติ"
+        disabled={loading}
+      >
+        <History className="h-5 w-5" />
+      </button>
+      <button
+        onClick={() => handleCarSelect(record, 'info')}
+        className="text-gray-600 hover:text-gray-900 transition-colors"
+        title="ดูรายละเอียด"
+        disabled={loading}
+      >
+        <SearchIcon className="h-5 w-5" />
+      </button>
+    </div>
+  );
+
+  // Row className
+  const rowClassName = () => "hover:bg-gray-50 transition-colors";
 
   const renderEmptyMessage = () => {
-    if (isSearch) {
+    if (loading) {
       return (
-        <div className="p-4">
-          <div className=" text-mediumGray mb-2 flex items-start gap-2 justify-center w-full">
-            <AlertCircle className='w-5 h-5' />  ไม่พบข้อมูลที่ค้นหา
-          </div>
-            <div className="text-sm text-gray-400">
-              กรุณาลองค้นหาด้วยเงื่อนไขอื่น หรือ
-              <button
-                onClick={handleClear}
-                className="text-primary hover:underline ml-1"
-              >
-                ล้างการค้นหา
-              </button>
-            </div>
+        <div className="py-10 flex flex-col items-center justify-center">
+          <RefreshCw className="h-10 w-10 text-primary animate-spin mb-3" />
+          <p className="text-gray-500">กำลังโหลดข้อมูล...</p>
         </div>
       );
     }
+    
+    if (isSearch) {
+      return (
+        <div className="p-4">
+          <div className="text-mediumGray mb-2 flex items-start gap-2 justify-center w-full">
+            <AlertCircle className='w-5 h-5' />  ไม่พบข้อมูลที่ค้นหา
+          </div>
+          <div className="text-sm text-gray-400">
+            กรุณาลองค้นหาด้วยเงื่อนไขอื่น หรือ
+            <button
+              onClick={handleLocalClear}
+              className="text-primary hover:underline ml-1"
+            >
+              ล้างการค้นหา
+            </button>
+          </div>
+        </div>
+      );
+    }
+    
     return 'ไม่พบข้อมูล';
   };
 
   if (authLoading) {
-    return <LoadingSpinner message="กำลังโหลดข้อมูล..." />;
+    return <LoadingSpinner message="กำลังตรวจสอบสิทธิ์..." />;
   }
 
   return (
-    <div className="flex flex-col gap-4 p-4">
-      <Breadcrumb pageName="ประวัติการใช้งานรถ" />
+    <div className="flex flex-col gap-4 p-4 min-h-screen">
+      <div className="flex flex-col gap-4 flex-grow">
+        <Breadcrumb pageName="ประวัติการใช้งานรถ" />
 
-      <div className="bg-white p-2 rounded w-fit">
-        <div className="flex gap-4">
-          <button
-            onClick={() => handleMapChange('AB')}
-            className={`px-4 py-2 rounded-md ${activeMap === 'AB' ? 'bg-primary text-secondary' : 'text-header hover:bg-secondary'}`}
-            disabled={loading}
-          >
-            ลานจอดทั้งหมด
-          </button>
-          <button
-            onClick={() => handleMapChange('A')}
-            className={`px-4 py-2 rounded-md ${activeMap === 'A' ? 'bg-primary text-secondary' : 'text-header hover:bg-secondary'}`}
-            disabled={loading}
-          >
-            ลานจอด A
-          </button>
-          <button
-            onClick={() => handleMapChange('B')}
-            className={`px-4 py-2 rounded-md ${activeMap === 'B' ? 'bg-primary text-secondary' : 'text-header hover:bg-secondary'}`}
-            disabled={loading}
-          >
-            ลานจอด B
-          </button>
-        </div>
-      </div>
-
-      <div className='bg-white rounded'>
-        <SearchDisplay
-          searchConfig={searchConfig}
-          onSearch={handleLocalSearch}
-          onClear={handleLocalClear}
-          filters={filters}
-        />
-
-        {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative">
-            {error}
+        <div className="bg-white p-2 rounded w-fit">
+          <div className="flex gap-4">
+            <button
+              onClick={() => handleMapChange('AB')}
+              className={`px-4 py-2 rounded-md ${activeMap === 'AB' ? 'bg-primary text-secondary' : 'text-header hover:bg-secondary'}`}
+              disabled={loading}
+            >
+              ลานจอดทั้งหมด
+            </button>
+            <button
+              onClick={() => handleMapChange('A')}
+              className={`px-4 py-2 rounded-md ${activeMap === 'A' ? 'bg-primary text-secondary' : 'text-header hover:bg-secondary'}`}
+              disabled={loading}
+            >
+              ลานจอด A
+            </button>
+            <button
+              onClick={() => handleMapChange('B')}
+              className={`px-4 py-2 rounded-md ${activeMap === 'B' ? 'bg-primary text-secondary' : 'text-header hover:bg-secondary'}`}
+              disabled={loading}
+            >
+              ลานจอด B
+            </button>
           </div>
-        )}
+        </div>
 
-        <div className='px-4 pb-4'>
-          <div className="flex justify-between items-center pb-4">
-            <div className="text-header">
-              {isSearch ? `ผลการค้นหา (${logs.meta.total})` : `จำนวนทั้งหมด (${logs.meta.total})`}
+        <div className='bg-white rounded'>
+          <SearchDisplay
+            searchConfig={searchConfig}
+            onSearch={handleLocalSearch}
+            onClear={handleLocalClear}
+            filters={filters}
+          />
+
+          {error && (
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mx-4 my-2">
+              {error}
+            </div>
+          )}
+
+          <div className='px-4 pb-4'>
+            <div className="flex justify-between items-center pb-4">
+              <div className="text-header flex items-center">
+                {isSearch ? `ผลการค้นหา (${logs?.meta?.total || 0})` : `จำนวนทั้งหมด (${logs?.meta?.total || 0})`}
+              </div>
+            </div>
+
+            <div>
+              <TableDisplay
+                headers={tableHeaders}
+                data={logs?.data || []}
+                actions={renderActions}
+                rowClassName={rowClassName}
+                emptyMessage={renderEmptyMessage()}
+                maxHeight="400px"
+                loading={loading}
+              />
             </div>
           </div>
-
-          <div>
-            <TableDisplay
-              headers={headersConfig}
-              data={renderTableData()}
-              emptyMessage={renderEmptyMessage()}
-              maxHeight="400px"
-              rowClassName={() => "hover:bg-gray-50 transition-colors"}
-              actions={(item: { rawData: ParkingLogItem }) => (
-                <div className="flex justify-center space-x-2">
-                  <button
-                    onClick={() => handleCarSelect(item.rawData, 'history')}
-                    className="text-gray-600 hover:text-gray-900 transition-colors"
-                    title="ดูประวัติ"
-                    disabled={loading}
-                  >
-                    <HistoryIcon className="h-5 w-5" />
-                  </button>
-                  <button
-                    onClick={() => handleCarSelect(item.rawData, 'info')}
-                    className="text-gray-600 hover:text-gray-900 transition-colors"
-                    title="ดูรายละเอียด"
-                    disabled={loading}
-                  >
-                    <SearchIcon className="h-5 w-5" />
-                  </button>
-                </div>
-              )}
-            />
-          </div>
         </div>
       </div>
 
-      {logs.meta.total > 0 && (
-        <Pagination
-          currentPage={Number(filters.page) || 1}
-          totalPages={Number(logs.meta.totalPages) || 1}
-          onPageChange={handlePageChange}
-          totalItems={Number(logs.meta.total) || 0}
-          itemsPerPage={Number(filters.limit) || 10}
-        />
+      {logs?.meta?.total > 0 && (
+        <div className="mt-auto pt-4 sticky bottom-0 bg-gray-50 rounded shadow-md">
+          <Pagination
+            currentPage={Number(filters.page) || 1}
+            totalPages={Number(logs?.meta?.lastPage) || 1}
+            onPageChange={handlePageChange}
+            totalItems={Number(logs?.meta?.total) || 0}
+            itemsPerPage={Number(filters.limit) || 10}
+          />
+        </div>
       )}
 
       {selectedCar && showCarInfoModal && (

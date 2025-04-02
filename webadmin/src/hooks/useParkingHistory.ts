@@ -27,19 +27,23 @@ const initialFilters: ProcessedFilters = {
 export const useParkingHistory = () => {
   const { token } = useAuth();
 
+  // Socket connection
   const socket = useSocketService(LogSocketService, true);
   const [isConnected, setIsConnected] = useState(false);
+  
+  // Loading and error states
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  // เพิ่ม ref เพื่อเก็บสถานะการโหลดข้อมูลล่าสุด
+  // Refs for managing async operations
   const fetchingRef = useRef<boolean>(false);
-  // เพิ่ม timeout ref เพื่อจัดการกับการรอการเชื่อมต่อ
   const connectionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const socketRequestIdRef = useRef<number>(0);
 
+  // Main data state
   const [logs, setLogs] = useState<ParkingLogResponse>({
     data: [],
-    meta: { total: 0, totalPages: 0, page: 1, limit: 10 }
+    meta: { total: 0, lastPage: 0, page: 1, limit: 10 }
   });
 
   // UI States
@@ -48,6 +52,7 @@ export const useParkingHistory = () => {
   const [selectedCar, setSelectedCar] = useState<ParkingLogItem | null>(null);
   const [showCarInfoModal, setShowCarInfoModal] = useState(false);
   const [showCarHistoryModal, setShowCarHistoryModal] = useState(false);
+  const [isSearch, setIsSearch] = useState(false);
 
   // History Modal States
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -56,91 +61,119 @@ export const useParkingHistory = () => {
   // Filter States
   const [filters, setFilters] = useState<ProcessedFilters>(initialFilters);
 
-  // Data Fetching
+  // Data Fetching with improved error handling and request tracking
   const fetchParkingData = useCallback(async (map: string) => {
-    // ตรวจสอบว่ากำลังโหลดข้อมูลอยู่หรือไม่
+    // Prevent concurrent requests
     if (fetchingRef.current) {
-      console.log('ขณะนี้กำลังโหลดข้อมูล กรุณารอสักครู่...');
+      console.log('Request already in progress, skipping...');
       return;
     }
 
-    // ล้าง timeout ก่อนหน้าถ้ามี
+    // Clear previous timeout if any
     if (connectionTimeoutRef.current) {
       clearTimeout(connectionTimeoutRef.current);
       connectionTimeoutRef.current = null;
     }
 
+    // Check socket connection
     if (!socket?.connected) {
       setError('รอการเชื่อมต่อ...');
       
-      // ตั้ง timeout เพื่อรอการเชื่อมต่อสำเร็จ ถ้าไม่สำเร็จจะแสดงข้อความว่าเชื่อมต่อไม่ได้
+      // Set timeout for connection attempt
       connectionTimeoutRef.current = setTimeout(() => {
         if (!socket?.connected) {
           setError('ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้ กรุณาลองใหม่อีกครั้ง');
           setLoading(false);
         }
-      }, 10000); // รอ 10 วินาที
+      }, 10000); // 10 seconds timeout
       
       return;
     }
 
+    // Show loading indicator only if no data is present
     const hasExistingData = logs.data.length > 0;
     if (!hasExistingData) {
       setLoading(true);
     }
 
-    fetchingRef.current = true; // เริ่มโหลดข้อมูล
+    // Mark fetch operation as in progress
+    fetchingRef.current = true;
+    
+    // Create a unique request ID to track this specific request
+    const currentRequestId = ++socketRequestIdRef.current;
     
     try {
       const queryParams = {
         ...filters,
         zone: map !== 'AB' ? map : null,
-        timestamp: new Date().toISOString() // เพิ่ม timestamp เพื่อป้องกัน cache
+        timestamp: new Date().toISOString() // Add timestamp to prevent caching
       };
 
-      console.log('กำลังโหลดข้อมูล parking logs...', queryParams);
+      console.log('Fetching parking logs with params:', queryParams);
 
       socket.emit('getLogs', queryParams, (response: WebSocketResponse<ParkingLogResponse>) => {
-        fetchingRef.current = false; // สิ้นสุดการโหลดข้อมูล
+        // Only process the response if it's from the most recent request
+        if (currentRequestId !== socketRequestIdRef.current) {
+          console.log('Ignoring stale response from request:', currentRequestId);
+          return;
+        }
+        
+        console.log('Socket response:', response);
+        fetchingRef.current = false; // Mark fetch operation as complete
         
         if (response.success && response.data) {
-          setLogs(response.data);
-          setLastRefreshTime(new Date());
-          setError(null); // สำคัญ: ล้างข้อความ error เมื่อโหลดสำเร็จ
+          const processedResponse = {
+            ...response.data,
+            meta: {
+              ...response.data.meta,
+              totalPages: response.data.meta.lastPage // Map fields for consistency
+            }
+          };
+          
+          // Validate data structure before updating state
+          if (Array.isArray(processedResponse.data)) {
+            setLogs(processedResponse);
+            setLastRefreshTime(new Date());
+            setError(null);
+          } else {
+            console.error('Invalid data structure:', processedResponse);
+            setError('รูปแบบข้อมูลไม่ถูกต้อง');
+          }
         } else {
           setError(response.error || 'ไม่สามารถโหลดข้อมูลได้');
         }
+        
         setLoading(false);
       });
     } catch (err) {
       console.error('Error fetching logs:', err);
       setError('เกิดข้อผิดพลาดในการโหลดข้อมูล');
       setLoading(false);
-      fetchingRef.current = false; // สิ้นสุดการโหลดข้อมูลเมื่อเกิด error
+      fetchingRef.current = false;
     }
   }, [socket, filters, logs.data.length]);
 
-  // WebSocket Event Handlers
+  // WebSocket event handlers
   const handleLogUpdate = useCallback((data: any) => {
-    console.log('Received log update:', data);
+    console.log('Log update received:', data);
 
     if (data.success) {
-      // รีเฟรชข้อมูลทั้งหมด
+      // Refresh data without changing the loading state
       fetchParkingData(activeMap);
       setLastRefreshTime(new Date());
     }
   }, [fetchParkingData, activeMap]);
 
-  // Socket Connection Setup
+  // Socket connection setup
   useEffect(() => {
     if (!socket) return;
 
     const handleConnect = () => {
       console.log('🔗 Socket connected successfully');
       setIsConnected(true);
-      setError(null); // สำคัญ: ล้างข้อความ error เมื่อเชื่อมต่อสำเร็จ
+      setError(null);
       
-      // โหลดข้อมูลทันทีเมื่อเชื่อมต่อสำเร็จ
+      // Fetch data immediately on successful connection
       fetchParkingData(activeMap);
     };
 
@@ -150,19 +183,21 @@ export const useParkingHistory = () => {
       setError('การเชื่อมต่อขัดข้อง กำลังพยายามเชื่อมต่อใหม่...');
     };
 
+    // Register event handlers
     socket.on('connect', handleConnect);
     socket.on('disconnect', handleDisconnect);
     socket.on('logCreated', handleLogUpdate);
     socket.on('logUpdated', handleLogUpdate);
     socket.on('statsUpdated', handleLogUpdate);
 
+    // Check current connection status
     if (socket.connected) {
       setIsConnected(true);
-      setError(null); // สำคัญ: ล้างข้อความ error ถ้า socket เชื่อมต่ออยู่แล้ว
+      setError(null);
     }
 
+    // Cleanup function
     return () => {
-      // ล้าง timeout ก่อนที่จะ unmount component
       if (connectionTimeoutRef.current) {
         clearTimeout(connectionTimeoutRef.current);
         connectionTimeoutRef.current = null;
@@ -176,21 +211,21 @@ export const useParkingHistory = () => {
     };
   }, [socket, handleLogUpdate, activeMap, fetchParkingData]);
 
-  // ทำการโหลดข้อมูลใหม่อีกครั้งหลังจาก token refresh
+  // Refresh on token or connection changes
   useEffect(() => {
     if (token && isConnected) {
-      console.log('Token มีการเปลี่ยนแปลง หรือการเชื่อมต่อเปลี่ยนแปลง โหลดข้อมูลใหม่');
+      console.log('Authentication or connection status changed, refreshing data');
       fetchParkingData(activeMap);
     }
   }, [token, isConnected, activeMap, fetchParkingData]);
 
-  // In useParkingHistory.ts
-  const getCarHistory = async (
+  // Car history fetching function with improved error handling
+  const getCarHistory = useCallback(async (
     vehicle_id: string, 
     page: number = 1, 
     limit: number = 10
   ) => {
-    console.log('Fetching history data:', { vehicle_id, token, page, limit });
+    console.log('Fetching vehicle history:', { vehicle_id, page, limit });
   
     if (!token) {
       setError('Unauthorized: No token available');
@@ -212,29 +247,55 @@ export const useParkingHistory = () => {
       );
   
       if (!response.ok) {
-        // Try to get error message from response
-        const errorText = await response.text();
-        throw new Error(errorText || 'Failed to fetch vehicle history');
+        let errorMessage = 'Failed to fetch vehicle history';
+        try {
+          // Try to parse error message from response
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+        } catch {
+          // If can't parse JSON, use status text
+          errorMessage = response.statusText || errorMessage;
+        }
+        throw new Error(errorMessage);
       }
   
       const data = await response.json();
-      console.log('Fetched history data:', data);
+      console.log('History data received:', data);
       
       setHistory(data);
-      setError(null);
+      setHistoryError(null);
     } catch (error) {
-      console.error('Fetch vehicle history error:', error);
-      setError('เกิดข้อผิดพลาดในการโหลดข้อมูล');
+      console.error('Vehicle history fetch error:', error);
+      setHistoryError(error instanceof Error ? error.message : 'เกิดข้อผิดพลาดในการโหลดข้อมูล');
     } finally {
       setHistoryLoading(false);
     }
-  };
+  }, [token]);
 
-  // Filter Handlers
+  // State for history errors
+  const [historyError, setHistoryError] = useState<string | null>(null);
+
+  // Handle search with validation and empty check
   const handleSearch = useCallback((searchParams: SearchFields) => {
+    // Check if there are any valid search parameters
+    const hasSearchValues = Object.entries(searchParams).some(([key, value]) => {
+      // Skip page and limit in this check
+      if (key === 'page' || key === 'limit') return false;
+      return value !== undefined && value !== null && value !== '';
+    });
+    
+    // Update search mode state
+    setIsSearch(hasSearchValues);
+    
+    // If no search values and already in non-search mode, don't trigger a search
+    if (!hasSearchValues && !isSearch) {
+      return;
+    }
+    
+    // Process dates and prepare params
     const processedParams = {
       ...searchParams,
-      page: 1,
+      page: 1, // Reset to first page when searching
       timestamp_in: searchParams.timestamp_in instanceof Date
         ? searchParams.timestamp_in.toISOString()
         : searchParams.timestamp_in,
@@ -242,34 +303,83 @@ export const useParkingHistory = () => {
         ? searchParams.timestamp_out.toISOString()
         : searchParams.timestamp_out,
     };
-
+  
+    console.log('Search params processed:', processedParams);
+    
+    // Update filters
     setFilters((prev: any) => ({
       ...prev,
       ...processedParams
     }));
-  }, []);
+    
+    // Schedule data fetch (using setTimeout to allow state update first)
+    setTimeout(() => fetchParkingData(activeMap), 0);
+  }, [fetchParkingData, activeMap, isSearch]);
 
+  // Clear search with optimization to prevent unnecessary API calls
   const handleClear = useCallback(() => {
+    // If already in default state, do nothing
+    if (
+      !isSearch && 
+      filters.page === initialFilters.page && 
+      filters.limit === initialFilters.limit &&
+      Object.keys(filters).length <= 2
+    ) {
+      console.log('Already in default state, no need to clear');
+      return;
+    }
+    
+    console.log('Clearing search filters');
+    
+    // Reset search mode
+    setIsSearch(false);
+    
+    // Reset filters to initial state
     setFilters({
       page: 1,
       limit: 10,
     });
-  }, []);
+    
+    // Fetch data with cleared filters
+    setTimeout(() => fetchParkingData(activeMap), 0);
+  }, [fetchParkingData, activeMap, filters, isSearch]);
 
-  // Map Change Handler
+  // Handle parking map selection change
   const handleMapChange = useCallback((map: string) => {
+    // Do nothing if already on the selected map
+    if (map === activeMap) {
+      return;
+    }
+    
+    console.log('Changing active map to:', map);
     setActiveMap(map);
+    
+    // Reset pagination when changing maps
+    setFilters(prev => ({ ...prev, page: 1 }));
+    
+    // Fetch data for the new map
     fetchParkingData(map);
-  }, [fetchParkingData]);
+  }, [fetchParkingData, activeMap]);
 
-  // Pagination Handler
+  // Handle pagination
   const handlePageChange = useCallback((page: number) => {
-    setFilters((prev: any) => ({ ...prev, page }));
-  }, []);
+    // Do nothing if already on the requested page
+    if (page === filters.page) {
+      return;
+    }
+    
+    console.log('Changing to page:', page);
+    setLoading(true);
+    setFilters(prev => ({ ...prev, page }));
+    
+    // Fetch data for the new page
+    setTimeout(() => fetchParkingData(activeMap), 0);
+  }, [fetchParkingData, activeMap, filters.page]);
 
-  // Modal Controls
+  // Car selection and modal handling
   const handleCarSelect = useCallback((car: ParkingLogItem, type: 'info' | 'history') => {
     setSelectedCar(car);
+    
     if (type === 'info') {
       setShowCarInfoModal(true);
       setShowCarHistoryModal(false);
@@ -280,25 +390,26 @@ export const useParkingHistory = () => {
     }
   }, [getCarHistory]);
 
+  // Close all modals
   const closeModals = useCallback(() => {
     setShowCarInfoModal(false);
     setShowCarHistoryModal(false);
     setSelectedCar(null);
   }, []);
 
-  // เพิ่มฟังก์ชันสำหรับรีเฟรชข้อมูลแบบ manual
+  // Manual refresh function
   const refreshData = useCallback(() => {
     if (isConnected) {
+      // Force reload without changing search state
       fetchParkingData(activeMap);
-    } else {
-      // พยายามเชื่อมต่อใหม่อีกครั้งก่อนโหลดข้อมูล
-      if (socket) {
-        setError('กำลังพยายามเชื่อมต่อใหม่...');
-        socket.connect();
-      }
+    } else if (socket) {
+      // Try to reconnect if disconnected
+      setError('กำลังพยายามเชื่อมต่อใหม่...');
+      socket.connect();
     }
   }, [isConnected, activeMap, fetchParkingData, socket]);
 
+  // Return hook values and functions
   return {
     // States
     loading,
@@ -312,7 +423,9 @@ export const useParkingHistory = () => {
     showCarHistoryModal,
     showCarInfoModal,
     historyLoading,
+    historyError,
     history,
+    isSearch,
 
     // Handlers
     handleSearch,
@@ -323,6 +436,6 @@ export const useParkingHistory = () => {
     closeModals,
     fetchParkingData,
     getCarHistory,
-    refreshData // เพิ่มฟังก์ชันใหม่เพื่อรองรับการรีเฟรชข้อมูลด้วยตนเอง
+    refreshData
   };
 };

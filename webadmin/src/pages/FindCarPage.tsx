@@ -11,6 +11,7 @@ import { AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { getImageUrl } from '../config/ImageConfig';
 import { vehicle_brand } from '../utils/vehicle_brand';
 import { vehicle_color } from '../utils/vehicle_color';
+import LoadingSpinner from '../components/common/LoadingSpinner';
 
 
 const FindCarPage: React.FC = () => {
@@ -66,7 +67,8 @@ const FindCarPage: React.FC = () => {
         handleClear,
         handlePageChange,
         handleClick,
-        handleBack
+        handleBack,
+        loading
     } = useFindCar();
 
 
@@ -104,56 +106,60 @@ const FindCarPage: React.FC = () => {
         };
     }, []);
 
+    if (authLoading || loading) {
+        return <LoadingSpinner message="กำลังโหลดข้อมูล..." />;
+    }
+
     return (
-        <div className="flex flex-col gap-4 p-4">
-            <Breadcrumb pageName="ค้นหาตำแหน่งจอดรถ" />
+        <div className="flex flex-col gap-4 p-4 min-h-screen">
+            <div className="flex flex-col gap-4 flex-grow">
+                <Breadcrumb pageName="ค้นหาตำแหน่งจอดรถ" />
 
-            {/* Search Section */}
-            {!selectedCar && (
-                <SearchDisplay
-                    searchConfig={searchConfig}
-                    onSearch={handleSearch}
-                    onClear={handleClear}
-                    filters={filters}
-                />
-            )}
+                {/* Search Section */}
+                {!selectedCar && (
+                    <SearchDisplay
+                        searchConfig={searchConfig}
+                        onSearch={handleSearch}
+                        onClear={handleClear}
+                        filters={filters}
+                    />
+                )}
 
-            {/* Error Display */}
-            {error && (
-                <div className="bg-red-100 border border-red-400 text-error px-4 py-3 rounded relative">
-                    {error}
-                </div>
-            )}
-
-            <div>
-                <div className="flex justify-between items-center pb-4">
-                    <div className=" text-header">
-                        {isSearchMode && !selectedCar
-                            ? `ผลการค้นหา (${activeData.meta.total})`
-                            : selectedCar ?
-                             <>
-                               {/* Back Button */}
-                            <button
-                                onClick={handleBack}
-                                className="flex items-center text-mediumGray hover:text-primary"
-                            >
-                                <ChevronLeft className="w-5 h-5 mr-1" />
-                                <span>กลับ</span>
-                            </button>
-                            </>
-                            :`รถที่จอดปัจจุบันทั้งหมด (${activeData.meta.total})`
-                        }
+                {/* Error Display */}
+                {error && (
+                    <div className="bg-red-100 border border-red-400 text-error px-4 py-3 rounded relative">
+                        {error}
                     </div>
-                </div>
+                )}
 
-                {/* Main Content */}
-                <div className="">
-                    {/* List View */}
-                    {!selectedCar ? (
-                        <div className="">
-                            {/* Content */}
-                            {activeData.meta.total > 0 ? (
+                <div className="flex-grow">
+                    <div className="flex justify-between items-center pb-4">
+                        <div className="text-header">
+                            {isSearchMode && !selectedCar
+                                ? `ผลการค้นหา (${activeData.meta.total})`
+                                : selectedCar ?
                                 <>
+                                {/* Back Button */}
+                                <button
+                                    onClick={handleBack}
+                                    className="flex items-center text-mediumGray hover:text-primary"
+                                >
+                                    <ChevronLeft className="w-5 h-5 mr-1" />
+                                    <span>กลับ</span>
+                                </button>
+                                </>
+                                :`รถที่จอดปัจจุบันทั้งหมด (${activeData.meta.total})`
+                            }
+                        </div>
+                    </div>
+
+                    {/* Main Content */}
+                    <div className="">
+                        {/* List View */}
+                        {!selectedCar ? (
+                            <div className="">
+                                {/* Content */}
+                                {activeData.meta.total > 0 ? (
                                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                                         {activeData.data.map((car) => (
                                             <div
@@ -188,49 +194,50 @@ const FindCarPage: React.FC = () => {
                                             </div>
                                         ))}
                                     </div>
-
-                                    {/* Pagination */}
-                                    <div className="mt-6">
-                                        <Pagination
-                                            currentPage={Number(filters.page) || 1}
-                                            totalPages={Number(activeData.meta.totalPages) || 1}
-                                            onPageChange={handlePageChange}
-                                            totalItems={Number(activeData.meta.total) || 0}
-                                            itemsPerPage={Number(filters.limit) || 10}
-                                        />
-                                    </div>
-                                </>
-                            ) : (
-                                <div className="flex flex-col items-center justify-center py-12 rounded-lg">
-                                    <div className=" text-mediumGray mb-2 flex items-start gap-2">
-                                      <AlertCircle className='w-5 h-5'/>  {isSearchMode ? 'ไม่พบข้อมูลที่ค้นหา' : 'ไม่มีรถในลานจอด'}
-                                    </div>
-                                    {isSearchMode && (
-                                        <div className="text-sm text-gray-400">
-                                            กรุณาลองค้นหาด้วยเงื่อนไขอื่น หรือ
-                                            <button
-                                                onClick={handleClear}
-                                                className="text-primary hover:underline ml-1"
-                                            >
-                                                ล้างการค้นหา
-                                            </button>
+                                ) : (
+                                    <div className="flex flex-col items-center justify-center py-12 rounded-lg">
+                                        <div className="text-mediumGray mb-2 flex items-start gap-2">
+                                          <AlertCircle className='w-5 h-5'/>  {isSearchMode ? 'ไม่พบข้อมูลที่ค้นหา' : 'ไม่มีรถในลานจอด'}
                                         </div>
-                                    )}
-                                </div>
-                            )}
-                        </div>
-                    ) : (
-                        // Detail View
-                        <div className="">
-                            {/* Car Detail Card */}
-                            <CarInfoDisplay
-                                selectedCar={selectedCar}
-                                slotData={slotData}
-                            />
-                        </div>
-                    )}
+                                        {isSearchMode && (
+                                            <div className="text-sm text-gray-400">
+                                                กรุณาลองค้นหาด้วยเงื่อนไขอื่น หรือ
+                                                <button
+                                                    onClick={handleClear}
+                                                    className="text-primary hover:underline ml-1"
+                                                >
+                                                    ล้างการค้นหา
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            // Detail View
+                            <div className="">
+                                {/* Car Detail Card */}
+                                <CarInfoDisplay
+                                    selectedCar={selectedCar}
+                                    slotData={slotData}
+                                />
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
+
+            {!selectedCar && activeData.meta.total > 0 && (
+                <div className="mt-auto pt-4 sticky bottom-0 bg-gray-50 rounded shadow-md">
+                    <Pagination
+                        currentPage={Number(filters.page) || 1}
+                        totalPages={Number(activeData.meta.lastPage) || 1}
+                        onPageChange={handlePageChange}
+                        totalItems={Number(activeData.meta.total) || 0}
+                        itemsPerPage={Number(filters.limit) || 10}
+                    />
+                </div>
+            )}
         </div>
     );
 }

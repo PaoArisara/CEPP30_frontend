@@ -126,14 +126,14 @@ export const useFindSlot = () => {
             setLoading(false);
             return;
         }
-        
+
         if (!socket.connected) {
             // ถ้าเป็นการโหลดครั้งแรก ให้แสดง loading แทนข้อความรอการเชื่อมต่อ
             if (initialLoadRef.current) {
                 setLoading(true);
                 return;
             }
-            
+
             setError('รอการเชื่อมต่อ...');
             return;
         }
@@ -148,7 +148,7 @@ export const useFindSlot = () => {
         setLoading(true);
         // ล้าง error ก่อนเรียก API
         setError(null);
-        
+
         try {
             socket.emit('getSlotStatus', {
                 zone: filters.zone,
@@ -156,7 +156,7 @@ export const useFindSlot = () => {
             }, (response: WebSocketResponse<SlotStats[]>) => {
                 fetchingRef.current = false;
                 initialLoadRef.current = false;
-                
+
                 if (response.success) {
                     setSlotStatsData(response.data);
                     setError(null);
@@ -185,11 +185,11 @@ export const useFindSlot = () => {
             setLoading(false);
             return;
         }
-    
+
         setLoading(true);
         try {
             const response = await fetch(
-                `${API_CONFIG.baseURL}/parkingrecord-active/slot?${new URLSearchParams(filter)}`, 
+                `${API_CONFIG.baseURL}/parkingrecord-active/slot?${new URLSearchParams(filter)}`,
                 {
                     method: 'GET',
                     headers: {
@@ -198,13 +198,13 @@ export const useFindSlot = () => {
                     }
                 }
             );
-    
+
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
-    
+
             const data = await response.json();
-            
+
             if (data.message) {
                 setError(data.message);
                 setSelectedCar(null);
@@ -224,22 +224,23 @@ export const useFindSlot = () => {
             setLoading(false);
         }
     };
-    
+
+    // แก้ไขฟังก์ชัน handleSearch
     const handleSearch = useCallback((searchParams: SearchFields) => {
         // กรองออก `page` และ `limit` จาก searchParams
         const { page, limit, ...paramsToCheck } = searchParams;
-    
-        // ตรวจสอบว่ามีค่ากรอกหรือไม่ในฟิลด์อื่น ๆ ยกเว้น `page` และ `limit`
+
+        // ตรวจสอบว่ามีค่ากรอกหรือไม่ในฟิลด์อื่นๆ
         const hasSearchValues = Object.values(paramsToCheck).some(value =>
             value !== undefined && value !== '' && value !== null
         );
-    
+
         // ถ้าไม่มีค่าในการค้นหาก็ไม่ทำการค้นหา
         if (!hasSearchValues) {
             return;
         }
-    
-        // ประมวลผลค่าและแปลงเป็นรูปแบบที่ต้องการ (เช่น แปลงวันที่เป็น ISO string)
+
+        // ประมวลผลค่าและแปลงเป็นรูปแบบที่ต้องการ
         const updatedFilters = {
             ...filters,
             ...Object.entries(paramsToCheck).reduce((acc, [key, value]) => ({
@@ -248,23 +249,54 @@ export const useFindSlot = () => {
             }), {}),
             page: 1 // เพิ่ม page เป็น 1 เพื่อการค้นหาใหม่
         };
-    
+
         // ตรวจสอบว่า filters ผ่านการ validate หรือไม่
         if (!validateFilters(updatedFilters)) {
             return;
         }
-    
-        // ตั้งค่าฟิลเตอร์ที่อัปเดต
-        setFilters(updatedFilters);
+
         // ล้าง error ก่อนเริ่มค้นหา
         setError(null);
         setLoading(true);
-    
+
+        // อัพเดท filters ก่อน
+        setFilters(updatedFilters);
+
         // กรณีที่ 1: มีแค่ zone และ floor - ใช้ socket
         if (searchParams.zone && searchParams.floor && !searchParams.row && !searchParams.spot) {
             setViewMode('floorMap');
-            fetchSlotData(); // ใช้ fetchSlotData ที่มีอยู่แล้ว
-        } 
+
+            // เรียก API โดยใช้ค่า parameters โดยตรง ไม่ต้องรอให้ filters อัพเดท
+            if (!socket || !socket.connected) {
+                setError('ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้');
+                setLoading(false);
+                return;
+            }
+
+            try {
+                fetchingRef.current = true;
+                socket.emit('getSlotStatus', {
+                    zone: searchParams.zone,
+                    floor: searchParams.floor
+                }, (response: WebSocketResponse<SlotStats[]>) => {
+                    fetchingRef.current = false;
+                    initialLoadRef.current = false;
+
+                    if (response.success) {
+                        setSlotStatsData(response.data);
+                        setError(null);
+                    } else {
+                        setError(response.error || 'ไม่สามารถโหลดข้อมูลได้');
+                    }
+                    setLoading(false);
+                });
+            } catch (err) {
+                console.error('Error fetching slot data:', err);
+                setError('เกิดข้อผิดพลาดในการโหลดข้อมูล');
+                setLoading(false);
+                fetchingRef.current = false;
+            }
+        }
         // กรณีที่ 2: มีครบทั้ง zone, floor, slot, spot - ใช้ API
         else if (searchParams.zone && searchParams.floor && searchParams.row && searchParams.spot) {
             fetchSlotByFilter({
@@ -274,20 +306,53 @@ export const useFindSlot = () => {
                 spot: searchParams.spot
             });
         }
-    }, [filters, fetchSlotData, validateFilters, fetchSlotByFilter]);
+    }, [socket, validateFilters, fetchSlotByFilter]);
 
+    // แก้ไขฟังก์ชัน handleClear
     const handleClear = useCallback(() => {
         setViewMode('floorMap');
         setError(null);
+
+        // ค่าเริ่มต้น
         const initialFilters = {
             zone: 'A',
             floor: '01',
             row: null,
             spot: null,
         };
+
+        // อัพเดท filters
         setFilters(initialFilters);
-        fetchSlotData();
-    }, [fetchSlotData]);
+
+        // เรียก API โดยตรงโดยใช้ค่า initialFilters ไม่ต้องรอให้ state อัพเดท
+        if (socket && socket.connected) {
+            setLoading(true);
+            try {
+                fetchingRef.current = true;
+                socket.emit('getSlotStatus', {
+                    zone: initialFilters.zone,
+                    floor: initialFilters.floor
+                }, (response: WebSocketResponse<SlotStats[]>) => {
+                    fetchingRef.current = false;
+                    initialLoadRef.current = false;
+
+                    if (response.success) {
+                        setSlotStatsData(response.data);
+                        setError(null);
+                    } else {
+                        setError(response.error || 'ไม่สามารถโหลดข้อมูลได้');
+                    }
+                    setLoading(false);
+                });
+            } catch (err) {
+                console.error('Error fetching slot data:', err);
+                setError('เกิดข้อผิดพลาดในการโหลดข้อมูล');
+                setLoading(false);
+                fetchingRef.current = false;
+            }
+        }
+    }, [socket]);
+
 
     const handleClick = useCallback((area: any) => {
         const parkingSlotId = area.id.split("-")[0];
@@ -310,7 +375,7 @@ export const useFindSlot = () => {
             setIsConnected(true);
             // ล้าง error เมื่อเชื่อมต่อสำเร็จ
             setError(null);
-            
+
             // เมื่อเชื่อมต่อได้แล้ว และอยู่ในโหมด floorMap ให้โหลดข้อมูล
             if (viewMode === 'floorMap') {
                 fetchSlotData();
@@ -364,7 +429,7 @@ export const useFindSlot = () => {
             console.log('Socket already connected, initializing data');
             setIsConnected(true);
             setError(null);
-            
+
             // เมื่อเชื่อมต่อได้แล้ว และอยู่ในโหมด floorMap ให้โหลดข้อมูล
             if (viewMode === 'floorMap') {
                 fetchSlotData();

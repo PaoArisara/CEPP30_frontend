@@ -1,6 +1,5 @@
 import React from 'react';
 
-// Define types for table configuration
 interface TableHeader {
   key: string;
   label: string;
@@ -16,6 +15,7 @@ interface TableDisplayProps {
   onRowClick?: (item: any) => void;
   actions?: (item: any) => React.ReactNode;
   rowClassName?: (item: any, index: number) => string;
+  loading?: boolean; 
 }
 
 export const TableDisplay: React.FC<TableDisplayProps> = ({
@@ -26,7 +26,24 @@ export const TableDisplay: React.FC<TableDisplayProps> = ({
   onRowClick,
   actions,
   rowClassName,
+  loading = false, 
 }) => {
+  const renderLoadingState = () => (
+    <tr>
+      <td
+        colSpan={headers.length + (actions ? 1 : 0)}
+        className="px-4 py-8 text-center"
+      >
+        <div className="flex flex-col items-center justify-center">
+            <div className="flex h-full items-center justify-center">
+              <div className="h-10 w-10 animate-spin rounded-full border-4 border-solid border-secondary border-t-transparent"></div>
+            </div>
+            <div className="text-base">กำลังโหลดข้อมูล...</div>
+          </div>
+      </td>
+    </tr>
+  );
+
   return (
     <div className="w-full overflow-hidden border border-gray-200 rounded">
       <div
@@ -64,7 +81,11 @@ export const TableDisplay: React.FC<TableDisplayProps> = ({
 
           {/* Table Body */}
           <tbody className="bg-white divide-y divide-gray-200">
-            {data.length === 0 ? (
+            {loading ? (
+              // แสดง loading spinner ถ้า loading เป็น true
+              renderLoadingState()
+            ) : data.length === 0 ? (
+              // แสดงข้อความเมื่อไม่มีข้อมูล
               <tr>
                 <td
                   colSpan={headers.length + (actions ? 1 : 0)}
