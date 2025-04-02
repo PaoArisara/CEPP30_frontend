@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { TimePicker as MuiTimePicker } from '@mui/x-date-pickers/TimePicker';
 import { AlertDescription } from '../Alert';
-import { X, AlertCircle } from 'lucide-react';
+import { X } from 'lucide-react';
 import dayjs, { Dayjs } from 'dayjs';
 import 'dayjs/locale/th';
 
@@ -28,8 +28,6 @@ const TimePicker: React.FC<TimePickerProps> = ({
     views = ['hours', 'minutes', 'seconds'],
     format = "HH:mm:ss"
 }) => {
-    const [showError, setShowError] = useState(false);
-    
     // ฟังก์ชันตรวจสอบว่าเวลาเกินปัจจุบันหรือไม่
     const validateTime = (timeValue: Dayjs | null): string => {
         if (!timeValue) return '';
@@ -60,94 +58,89 @@ const TimePicker: React.FC<TimePickerProps> = ({
     // คำนวณความผิดพลาดจากค่าปัจจุบัน
     const timeError = validateTime(value);
     const hasError = !!errorMessage || !!timeError;
+    const displayErrorMessage = errorMessage || timeError;
     
     return (
         <div className="flex flex-col gap-1 relative">
             <label className="text-header text-md">
                 {label} {required && <span className="text-error">*</span>}
             </label>
-            <div
-                className="relative"
-                onMouseEnter={() => timeError ? setShowError(true) : null}
-                onMouseLeave={() => setShowError(false)}
-            >
-                <div className="relative">
-                    <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="th">
-                        <MuiTimePicker
-                            value={value}
-                            onChange={handleTimeChange}
-                            className="w-full"
-                            format={format}
-                            views={views}
-                            ampm={false}
-                            slotProps={{
-                                textField: {
-                                    variant: "outlined",
-                                    size: "small",
-                                    placeholder: placeholder,
-                                    className: "w-full",
-                                    error: hasError,
-                                    sx: {
+            <div className="relative">
+                <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="th">
+                    <MuiTimePicker
+                        value={value}
+                        onChange={handleTimeChange}
+                        className="w-full"
+                        format={format}
+                        views={views}
+                        ampm={false}
+                        slotProps={{
+                            textField: {
+                                variant: "outlined",
+                                size: "small",
+                                placeholder: placeholder,
+                                className: "w-full",
+                                error: hasError,
+                                sx: {
+                                    fontFamily: 'inherit',
+                                    '& .MuiOutlinedInput-root': {
+                                        height: '40px',
                                         fontFamily: 'inherit',
-                                        '& .MuiOutlinedInput-root': {
-                                            height: '40px',
+                                        '& fieldset': {
+                                            borderColor: hasError ? '#CF283C' : '#E9F2FF',
+                                            borderWidth: 2,
+                                            borderRadius: '0.25rem'
+                                        },
+                                        '&:hover fieldset': {
+                                            borderColor: hasError ? '#CF283C' : '#BFC3C7',
+                                        },
+                                        '&.Mui-focused fieldset': {
+                                            borderColor: hasError ? '#CF283C' : '#0052CC',
+                                            borderWidth: 2,
+                                        },
+                                        '&.Mui-focused .MuiSvgIcon-root': {
+                                            color: hasError ? '#CF283C' : '#0052CC',
+                                        },
+                                        '& .MuiOutlinedInput-input': {
+                                            fontSize: '16px',
+                                            padding: '4px 8px',
+                                            height: '22px',
                                             fontFamily: 'inherit',
-                                            '& fieldset': {
-                                                borderColor: hasError ? '#CF283C' : '#E9F2FF',
-                                                borderWidth: 2,
-                                                borderRadius: '0.25rem'
-                                            },
-                                            '&:hover fieldset': {
-                                                borderColor: hasError ? '#CF283C' : '#BFC3C7',
-                                            },
-                                            '&.Mui-focused fieldset': {
-                                                borderColor: hasError ? '#CF283C' : '#0052CC',
-                                                borderWidth: 2,
-                                            },
-                                            '&.Mui-focused .MuiSvgIcon-root': {
-                                                color: hasError ? '#CF283C' : '#0052CC',
-                                            },
-                                            '& .MuiOutlinedInput-input': {
+                                            color: '#42526E',
+                                            '&::placeholder': {
                                                 fontSize: '16px',
-                                                padding: '4px 8px',
-                                                height: '22px',
-                                                fontFamily: 'inherit',
-                                                color: '#42526E',
-                                                '&::placeholder': {
-                                                    fontSize: '16px',
-                                                    color: '#BFC3C7',
-                                                    opacity: 1,
-                                                    fontFamily: 'inherit'
-                                                }
-                                            },
+                                                color: '#BFC3C7',
+                                                opacity: 1,
+                                                fontFamily: 'inherit'
+                                            }
                                         },
-                                        '& .MuiSvgIcon-root': {
-                                            color: hasError ? '#CF283C' : '#BFC3C7',
-                                            fontSize: '20px',
-                                        },
-                                        boxShadow: 'none',
-                                        '& .MuiPickersPopper-root, & .MuiPickersDay-root, & .MuiClock-root': {
-                                            fontFamily: 'inherit'
-                                        }
+                                    },
+                                    '& .MuiSvgIcon-root': {
+                                        color: hasError ? '#CF283C' : '#BFC3C7',
+                                        fontSize: '20px',
+                                    },
+                                    boxShadow: 'none',
+                                    '& .MuiPickersPopper-root, & .MuiPickersDay-root, & .MuiClock-root': {
+                                        fontFamily: 'inherit'
                                     }
-                                },
-                            }}
-                        />
-                    </LocalizationProvider>
-                    {value && (
-                        <button
-                            className="absolute right-10 top-3 text-lightGray hover:text-gray-500 z-10"
-                            onClick={() => onChange(null)}
-                            type="button"
-                            aria-label="Clear time"
-                        >
-                            <X size={16} />
-                        </button>
-                    )}
-                </div>
+                                }
+                            },
+                        }}
+                    />
+                </LocalizationProvider>
+                {value && (
+                    <button
+                        className="absolute right-10 top-1/2 transform -translate-y-1/2 text-lightGray hover:text-gray-500 z-10"
+                        onClick={() => onChange(null)}
+                        type="button"
+                        aria-label="Clear time"
+                    >
+                        <X size={16} />
+                    </button>
+                )}
             </div>
-            {errorMessage && (
-                <AlertDescription variant="destructive" className="text-error text-sm mt-1">{errorMessage}</AlertDescription>
+            {displayErrorMessage && (
+                <AlertDescription variant="destructive" className="text-error text-sm">{displayErrorMessage}</AlertDescription>
             )}
         </div>
     );
